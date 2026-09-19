@@ -24,7 +24,7 @@ on:
       build_target:
         description: "Build target"
         required: false
-        default: "image"
+        default: "kernel"
         type: choice
         options:
           - image
@@ -55,15 +55,18 @@ jobs:
       - name: Build Armbian
         run: |
           chmod +x compile.sh
-          sudo -E ./compile.sh \
+          ./compile.sh \
             BOARD=wukongpi \
             BRANCH=${{ github.event.inputs.kernel_branch || 'legacy' }} \
             RELEASE=${{ github.event.inputs.release || 'noble' }} \
             BUILD_MINIMAL=yes \
-            BUILD_ONLY=${{ github.event.inputs.build_target || 'image' }} \
+            BUILD_ONLY=${{ github.event.inputs.build_target || 'kernel' }} \
+            KERNEL_CONFIGURE=no \
             PROGRESS_LOG_TO_FILE=yes \
             USE_TMPFS=no \
-            PREFER_DOCKER=no
+            PREFER_DOCKER=no \
+            EXPERT=yes \
+            ASSUME_ALREADY_BUILT_DEPENDENCIES=no
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
