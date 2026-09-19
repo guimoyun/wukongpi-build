@@ -1,0 +1,211 @@
+diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/configs/wukongpi_defconfig
+@@ -0,0 +1,24 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_SYS_TEXT_BASE=0x4a000000
++CONFIG_SPL_SPI_FLASH_SUPPORT=y
++CONFIG_MACH_SUN8I_H3=y
++CONFIG_DRAM_CLK=408
++CONFIG_DRAM_ZQ=3881979
++CONFIG_DRAM_ODT_EN=y
++# CONFIG_VIDEO_DE2 is not set
++CONFIG_DEFAULT_DEVICE_TREE="sun8i-h2-plus-wukongpi"
++# CONFIG_OF_UPSTREAM is not set
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_CONSOLE_MUX=y
++CONFIG_SPL_STACK=0x8000
++CONFIG_SYS_PBSIZE=1024
++CONFIG_SPL=y
++CONFIG_SYS_CLK_FREQ=480000000
++# CONFIG_CMD_IMLS is not set
++# CONFIG_CMD_FLASH is not set
++# CONFIG_CMD_FPGA is not set
++CONFIG_SPL_SPI_SUNXI=y
++CONFIG_SUN8I_EMAC=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
++CONFIG_SYS_USB_EVENT_POLL_VIA_INT_QUEUE=y
++CONFIG_SPI_FLASH_WINBOND=y
++CONFIG_SPI_FLASH_MACRONIX=y
+diff --git a/arch/arm/dts/sun8i-h2-plus-wukongpi.dts b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
+@@ -0,0 +1,170 @@
++/*
++ * Copyright (C) 2016 Icenowy Zheng <icenowy@aosc.xyz>
++ *
++ * Based on sun8i-h3-orangepi-one.dts, which is:
++ *   Copyright (C) 2016 Hans de Goede <hdegoede@redhat.com>
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPL or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This file is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or sell
++ *     copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
++ */
++
++/dts-v1/;
++#include "sun8i-h3.dtsi"
++#include "sunxi-common-regulators.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/pinctrl/sun4i-a10.h>
++
++/ {
++	model = "Wukong Pi";
++	compatible = "wukong,wukongpi", "allwinner,sun8i-h2-plus";
++
++	aliases {
++		serial0 = &uart0;
++		ethernet0 = &emac;
++		ethernet1 = &xr819;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		pwr_led: pwr_led {
++			label = "wukongpi:green:pwr";
++			gpios = <&r_pio 0 10 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		status_led: status_led {
++			label = "wukongpi:red:status";
++			gpios = <&pio 0 17 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	reg_vcc_wifi: reg_vcc_wifi {
++		compatible = "regulator-fixed";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-name = "vcc-wifi";
++		enable-active-high;
++		gpio = <&pio 0 20 GPIO_ACTIVE_HIGH>;
++	};
++
++	reg_vdd_cpux: vdd-cpux-regulator {
++		compatible = "regulator-gpio";
++		regulator-name = "vdd-cpux";
++		regulator-type = "voltage";
++		regulator-boot-on;
++		regulator-always-on;
++		regulator-min-microvolt = <1100000>;
++		regulator-max-microvolt = <1300000>;
++		regulator-ramp-delay = <50>;
++
++		gpios = <&r_pio 0 6 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		gpios-states = <1>;
++		states = <1100000 0>, <1300000 1>;
++	};
++
++	wifi_pwrseq: wifi_pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&r_pio 0 7 GPIO_ACTIVE_LOW>;
++		post-power-on-delay-ms = <200>;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&reg_vdd_cpux>;
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_vcc3v3>;
++	bus-width = <4>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;
++	status = "okay";
++};
++
++&mmc1 {
++	vmmc-supply = <&reg_vcc_wifi>;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	bus-width = <4>;
++	non-removable;
++	status = "okay";
++
++	xr819: sdio_wifi@1 {
++		reg = <1>;
++	};
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&spi0 {
++	status = "disabled";
++
++	flash@0 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "mxicy,mx25l1606e", "winbond,w25q128";
++		reg = <0>;
++		spi-max-frequency = <40000000>;
++	};
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pa_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&usbphy {
++	status = "okay";
++	usb0_id_det-gpios = <&pio 6 12 GPIO_ACTIVE_HIGH>;
++};
