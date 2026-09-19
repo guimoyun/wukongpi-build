@@ -1,12 +1,3 @@
-From: WukongPi <wukongpi@users.noreply.github.com>
-Subject: board_wukongpi: add Wukong Pi board support to u-boot
-
----
- arch/arm/dts/Makefile                 |  1 +
- configs/wukongpi_defconfig            | 18 ++++++++++++++++++
- arch/arm/dts/sun8i-h2-plus-wukongpi.dts | 165 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 184 insertions(+)
-
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
@@ -46,21 +37,13 @@ diff --git a/arch/arm/dts/sun8i-h2-plus-wukongpi.dts b/arch/arm/dts/sun8i-h2-plu
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
-@@ -0,0 +1,165 @@
-+/*
-+ * Copyright (C) 2016 Icenowy Zheng <icenowy@aosc.xyz>
-+ *
-+ * Based on sun8i-h3-orangepi-one.dts, which is:
-+ *   Copyright (C) 2016 Hans de Goede <hdegoede@redhat.com>
-+ *
-+ * SPDX-License-Identifier: GPL-2.0-or-later
-+ */
-+
+@@ -0,0 +1,155 @@
 +/dts-v1/;
++
 +#include "sun8i-h3.dtsi"
 +#include "sunxi-common-regulators.dtsi"
++
 +#include <dt-bindings/gpio/gpio.h>
-+#include <dt-bindings/input/input.h>
 +
 +/ {
 +	model = "Wukong Pi";
@@ -69,7 +52,6 @@ new file mode 100644
 +	aliases {
 +		serial0 = &uart0;
 +		ethernet0 = &emac;
-+		ethernet1 = &xr819;
 +	};
 +
 +	chosen {
@@ -79,13 +61,13 @@ new file mode 100644
 +	leds {
 +		compatible = "gpio-leds";
 +
-+		pwr_led {
++		pwr {
 +			label = "wukongpi:green:pwr";
 +			gpios = <&r_pio 0 10 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
 +		};
 +
-+		status_led {
++		status {
 +			label = "wukongpi:red:status";
 +			gpios = <&pio 0 17 GPIO_ACTIVE_HIGH>;
 +		};
@@ -154,10 +136,6 @@ new file mode 100644
 +	bus-width = <4>;
 +	non-removable;
 +	status = "okay";
-+
-+	xr819: wifi@1 {
-+		reg = <1>;
-+	};
 +};
 +
 +&ohci0 {
@@ -186,18 +164,6 @@ new file mode 100644
 +	status = "okay";
 +};
 +
-+&uart1 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&uart1_pins>;
-+	status = "disabled";
-+};
-+
-+&uart2 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&uart2_pins>;
-+	status = "disabled";
-+};
-+
 +&usb_otg {
 +	dr_mode = "peripheral";
 +	status = "okay";
@@ -207,5 +173,3 @@ new file mode 100644
 +	status = "okay";
 +	usb0_id_det-gpios = <&pio 6 12 GPIO_ACTIVE_HIGH>;
 +};
---
-2.47.0
