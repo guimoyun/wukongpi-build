@@ -13,7 +13,7 @@ diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
 new file mode 100644
 --- /dev/null
 +++ b/configs/wukongpi_defconfig
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,19 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_SUNXI=y
 +CONFIG_DEFAULT_DEVICE_TREE="sun8i-h2-plus-wukongpi"
@@ -37,7 +37,7 @@ diff --git a/arch/arm/dts/sun8i-h2-plus-wukongpi.dts b/arch/arm/dts/sun8i-h2-plu
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,135 @@
 +/dts-v1/;
 +
 +#include "sun8i-h3.dtsi"
