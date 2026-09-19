@@ -1,4 +1,15 @@
-diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 1111111..2222222 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -438,6 +438,7 @@ dtb-$(CONFIG_MACH_SUN8I_H3) += \
+ 	sun8i-h2-plus-libretech-all-h3-cc.dtb \
+ 	sun8i-h2-plus-orangepi-r1.dtb \
+ 	sun8i-h2-plus-orangepi-zero.dtb \
++	sun8i-h2-plus-wukongpi.dtb \
+ 	sun8i-h3-bananapi-m2-plus.dtb \
+ 	sun8i-h3-bananapi-m2-plus-v1.2.dtb \
+ diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
 new file mode 100644
 index 0000000..1111111
 --- /dev/null
