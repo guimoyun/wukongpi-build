@@ -1,82 +1,66 @@
+From: WukongPi <wukongpi@users.noreply.github.com>
+Subject: board_wukongpi: add Wukong Pi defconfig and DTS
+
+---
+ configs/wukongpi_defconfig | 24 ++++++++++++++++++++++++
+ arch/arm/dts/Makefile      |  1 +
+ arch/arm/dts/sun8i-h2-plus-wukongpi.dts | 170 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 195 insertions(+)
+
+diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
+new file mode 100644
+index 000000000000..111111111111
+--- /dev/null
++++ b/configs/wukongpi_defconfig
+@@ -0,0 +1,24 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_DEFAULT_DEVICE_TREE="sun8i-h2-plus-wukongpi"
++CONFIG_SPL=y
++CONFIG_MACH_SUN8I_H3=y
++CONFIG_DRAM_CLK=408
++CONFIG_DRAM_ZQ=3881979
++CONFIG_DRAM_ODT_EN=y
++# CONFIG_VIDEO_DE2 is not set
++CONFIG_SPL_SPI_SUNXI=y
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SYS_CLK_FREQ=480000000
++CONFIG_CONSOLE_MUX=y
++CONFIG_SUN8I_EMAC=y
++CONFIG_SPI=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
++CONFIG_SPI_FLASH_WINBOND=y
++CONFIG_SPI_FLASH_MACRONIX=y
++CONFIG_SPL_SPI_FLASH_SUPPORT=y
++CONFIG_SYS_TEXT_BASE=0x4a000000
++CONFIG_SPL_STACK=0x8000
++CONFIG_SYS_PBSIZE=1024
++CONFIG_SYS_USB_EVENT_POLL_VIA_INT_QUEUE=y
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index 1111111..2222222 100644
+index 111111111111..222222222222 100644
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
-@@ -438,6 +438,7 @@ dtb-$(CONFIG_MACH_SUN8I_H3) += \
+@@ -645,6 +645,7 @@ dtb-$(CONFIG_MACH_SUN8I_H3) += \
  	sun8i-h2-plus-libretech-all-h3-cc.dtb \
  	sun8i-h2-plus-orangepi-r1.dtb \
  	sun8i-h2-plus-orangepi-zero.dtb \
 +	sun8i-h2-plus-wukongpi.dtb \
  	sun8i-h3-bananapi-m2-plus.dtb \
  	sun8i-h3-bananapi-m2-plus-v1.2.dtb \
- diff --git a/configs/wukongpi_defconfig b/configs/wukongpi_defconfig
-new file mode 100644
-index 0000000..1111111
---- /dev/null
-+++ b/configs/wukongpi_defconfig
-@@ -0,0 +1,24 @@
-+CONFIG_ARM=y
-+CONFIG_ARCH_SUNXI=y
-+CONFIG_SYS_TEXT_BASE=0x4a000000
-+CONFIG_SPL_SPI_FLASH_SUPPORT=y
-+CONFIG_MACH_SUN8I_H3=y
-+CONFIG_DRAM_CLK=408
-+CONFIG_DRAM_ZQ=3881979
-+CONFIG_DRAM_ODT_EN=y
-+# CONFIG_VIDEO_DE2 is not set
-+CONFIG_DEFAULT_DEVICE_TREE="sun8i-h2-plus-wukongpi"
-+# CONFIG_OF_UPSTREAM is not set
-+# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
-+CONFIG_CONSOLE_MUX=y
-+CONFIG_SPL_STACK=0x8000
-+CONFIG_SYS_PBSIZE=1024
-+CONFIG_SPL=y
-+CONFIG_SYS_CLK_FREQ=480000000
-+# CONFIG_CMD_IMLS is not set
-+# CONFIG_CMD_FLASH is not set
-+# CONFIG_CMD_FPGA is not set
-+CONFIG_SPL_SPI_SUNXI=y
-+CONFIG_SUN8I_EMAC=y
-+CONFIG_USB_EHCI_HCD=y
-+CONFIG_USB_OHCI_HCD=y
-+CONFIG_SYS_USB_EVENT_POLL_VIA_INT_QUEUE=y
-+CONFIG_SPI_FLASH_WINBOND=y
-+CONFIG_SPI_FLASH_MACRONIX=y
+ 	sun8i-h3-beelink-x2.dtb \
 diff --git a/arch/arm/dts/sun8i-h2-plus-wukongpi.dts b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
 new file mode 100644
-index 0000000..2222222
+index 000000000000..222222222222
 --- /dev/null
 +++ b/arch/arm/dts/sun8i-h2-plus-wukongpi.dts
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,165 @@
 +/*
 + * Copyright (C) 2016 Icenowy Zheng <icenowy@aosc.xyz>
 + *
-+ * Based on sun8i-h3-orangepi-one.dts, which is:
-+ *   Copyright (C) 2016 Hans de Goede <hdegoede@redhat.com>
++ * Based on sun8i-h3-orangepi-one.dts
 + *
-+ * This file is dual-licensed: you can use it either under the terms
-+ * of the GPL or the X11 license, at your option. Note that this dual
-+ * licensing only applies to this file, and not this project as a
-+ * whole.
-+ *
-+ *  a) This file is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of the
-+ *     License, or (at your option) any later version.
-+ *
-+ *  b) Permission is hereby granted, free of charge, to any person
-+ *     obtaining a copy of this software and associated documentation
-+ *     files (the "Software"), to deal in the Software without
-+ *     restriction, including without limitation the rights to use,
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or sell
-+ *     copies of the Software, and to permit persons to whom the
-+ *     Software is furnished to do so, subject to the following
-+ *     conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be
-+ *     included in all copies or substantial portions of the Software.
-+ *
-+ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
++ * SPDX-License-Identifier: GPL-2.0-or-later
 + */
 +
 +/dts-v1/;
@@ -93,7 +77,6 @@ index 0000000..2222222
 +	aliases {
 +		serial0 = &uart0;
 +		ethernet0 = &emac;
-+		ethernet1 = &xr819;
 +	};
 +
 +	chosen {
@@ -103,13 +86,13 @@ index 0000000..2222222
 +	leds {
 +		compatible = "gpio-leds";
 +
-+		pwr_led: pwr_led {
++		pwr_led {
 +			label = "wukongpi:green:pwr";
 +			gpios = <&r_pio 0 10 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
 +		};
 +
-+		status_led: status_led {
++		status_led {
 +			label = "wukongpi:red:status";
 +			gpios = <&pio 0 17 GPIO_ACTIVE_HIGH>;
 +		};
@@ -133,7 +116,6 @@ index 0000000..2222222
 +		regulator-min-microvolt = <1100000>;
 +		regulator-max-microvolt = <1300000>;
 +		regulator-ramp-delay = <50>;
-+
 +		gpios = <&r_pio 0 6 GPIO_ACTIVE_HIGH>;
 +		enable-active-high;
 +		gpios-states = <1>;
@@ -179,10 +161,6 @@ index 0000000..2222222
 +	bus-width = <4>;
 +	non-removable;
 +	status = "okay";
-+
-+	xr819: sdio_wifi@1 {
-+		reg = <1>;
-+	};
 +};
 +
 +&ohci0 {
@@ -195,7 +173,6 @@ index 0000000..2222222
 +
 +&spi0 {
 +	status = "disabled";
-+
 +	flash@0 {
 +		#address-cells = <1>;
 +		#size-cells = <1>;
@@ -220,3 +197,5 @@ index 0000000..2222222
 +	status = "okay";
 +	usb0_id_det-gpios = <&pio 6 12 GPIO_ACTIVE_HIGH>;
 +};
+--
+2.47.0
