@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
+# @description Generates reference documentation for the build framework's extension system. Writes auto-generated Markdown of every hook point to `userpatches/extensions/hooks.auto.docs.md` and a fully commented `sample-extension.sh` stub, both derived from the live hook registry. Enable it as an extension developer to discover all available hooks.
+
 ## Hooks
 function extension_metadata_ready__499_display_docs_generation_start_info() {
-	display_alert "Generating hook documentation and sample extension"
+	display_alert "Extension: ${EXTENSION}: Generating hook documentation and sample extension"
 }
 
 function extension_metadata_ready__docs_markdown() {
-	generate_markdown_docs_to_stdout > "${DEST}/"${LOG_SUBPATH}"/hooks.auto.docs.md"
+	mkdir -p "${SRC}/userpatches/extensions"
+	generate_markdown_docs_to_stdout > "${SRC}/userpatches/extensions/hooks.auto.docs.md"
 }
 
 function extension_metadata_ready__docs_sample_extension() {
@@ -17,23 +20,23 @@ function extension_metadata_ready__docs_sample_extension() {
 
 ### Common stuff
 function read_common_data() {
-	export HOOK_POINT_CALLS_COUNT=$(wc -l < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt")
-	export HOOK_POINT_CALLS_UNIQUE_COUNT=$(sort < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt" | uniq | wc -l)
-	export HOOK_POINTS_WITH_MULTIPLE_CALLS=""
+	declare -g HOOK_POINT_CALLS_COUNT=$(wc -l < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt")
+	declare -g HOOK_POINT_CALLS_UNIQUE_COUNT=$(sort < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt" | uniq | wc -l)
+	declare -g HOOK_POINTS_WITH_MULTIPLE_CALLS=""
 
 	# Read the hook_points (main, official names) from the hook point ordering file.
-	export ALL_HOOK_POINT_CALLS=$(xargs echo -n < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt")
+	declare -g ALL_HOOK_POINT_CALLS=$(xargs echo -n < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt")
 }
 
 function loop_over_hook_points_and_call() {
 	local callback="$1"
 	HOOK_POINT_COUNTER=0
+	declare one_hook_point
 	for one_hook_point in ${ALL_HOOK_POINT_CALLS}; do
-		export HOOK_POINT_COUNTER=$((HOOK_POINT_COUNTER + 1))
-		export HOOK_POINT="${one_hook_point}"
-		export MARKDOWN_HEAD="$(head -1 "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.orig.md")"
-		export MARKDOWN_BODY="$(tail -n +2 "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.orig.md")"
-		export COMPATIBILITY_NAMES="$(xargs echo -n < "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.compat")"
+		declare HOOK_POINT_COUNTER=$((HOOK_POINT_COUNTER + 1))
+		declare MARKDOWN_HEAD="$(head -1 "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.orig.md")"
+		declare MARKDOWN_BODY="$(tail -n +2 "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.orig.md")"
+		declare COMPATIBILITY_NAMES="$(xargs echo -n < "${EXTENSION_MANAGER_TMP_DIR}/${one_hook_point}.compat")"
 		${callback}
 	done
 }
@@ -48,7 +51,8 @@ MASTER_HEADER
 
 	[[ $HOOK_POINT_CALLS_COUNT -gt $HOOK_POINT_CALLS_UNIQUE_COUNT ]] && {
 		# Some hook points were called multiple times, determine which.
-		HOOK_POINTS_WITH_MULTIPLE_CALLS=$(comm -13 <(sort < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt" | uniq) <(sort < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt") | sort | uniq | xargs echo -n)
+		# Find duplicates without comm (uutils coreutils compatible)
+		HOOK_POINTS_WITH_MULTIPLE_CALLS=$(sort < "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt" | uniq -d | xargs echo -n)
 
 		cat << MULTIPLE_CALLS_WARNING
 - *Important:* The following hook points where called multiple times during the documentation generation. This can be indicative of a bug in the build system. Please check the sources for the invocation of the following hooks: \`${HOOK_POINTS_WITH_MULTIPLE_CALLS}\`.
@@ -58,6 +62,7 @@ MULTIPLE_CALLS_WARNING
 
 	cat << PRE_HOOKS_HEADER
 ## Hooks
+- Individual/specific hook functions can be [skipped/ignored/opted-out](/Developer-Guide_Extensions#how-to-opt-out-of-a-specific-hook-function).
 - Hooks are listed in the order they are called.
 PRE_HOOKS_HEADER
 
@@ -112,15 +117,12 @@ generate_bash_sample_for_hook_point() {
 	# shellcheck disable=SC2001
 	local COMMENT_BODY="$(echo "${MARKDOWN_BODY}" | tr '`' '"' | sed -e 's/^/###  /')"
 
-	local bonus=""
-	[[ "${HOOK_POINT_COUNTER}" == "1" ]] && bonus="$(echo -e "\n\texport PROGRESS_DISPLAY=verysilent # Example: export a variable. This one silences the built.")"
-
 	cat << SAMPLE_BASH_CODE
 ${COMMENT_HEAD}
 ${COMMENT_BODY}
-function ${HOOK_POINT}__be_more_awesome() {
-	# @TODO: Please rename this function to reflect what it does, but preserve the "${HOOK_POINT}__" prefix.
-	display_alert "Being awesome at \${HOOK_POINT}" "\${EXTENSION}" "info"${bonus}
+function ${one_hook_point}__be_more_awesome() {
+	# @TODO: Please rename this function to reflect what it does, but preserve the "${one_hook_point}__" prefix.
+	display_alert "Being awesome at ${one_hook_point}" "\${EXTENSION}" "info"
 }
 
 SAMPLE_BASH_CODE

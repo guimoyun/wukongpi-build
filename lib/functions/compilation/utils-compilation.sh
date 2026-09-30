@@ -1,57 +1,33 @@
 #!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
+#
+# This file is a part of the Armbian Build Framework
+# https://github.com/armbian/build/
+
+# Functions:
+
+# compile_atf
+# compile_uboot
+# compile_kernel
+# compile_firmware
+# compile_xilinx_bootgen
+# grab_version
+# advanced_patch
+# process_patch_file
+# overlayfs_wrapper
+
 grab_version() {
 	local ver=()
-	ver[0]=$(grep "^VERSION" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+')
-	ver[1]=$(grep "^PATCHLEVEL" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+')
-	ver[2]=$(grep "^SUBLEVEL" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+')
-	ver[3]=$(grep "^EXTRAVERSION" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^-rc[[:digit:]]+')
-	echo "${ver[0]:-0}${ver[1]:+.${ver[1]}}${ver[2]:+.${ver[2]}}${ver[3]}"
-}
-
-# find_toolchain <compiler_prefix> <expression>
-#
-# returns path to toolchain that satisfies <expression>
-#
-find_toolchain() {
-	[[ "${SKIP_EXTERNAL_TOOLCHAINS}" == "yes" ]] && {
-		echo "/usr/bin"
-		return
-	}
-	local compiler=$1
-	local expression=$2
-	local dist=10
-	local toolchain=""
-	# extract target major.minor version from expression
-	local target_ver
-	target_ver=$(grep -oE "[[:digit:]]+\.[[:digit:]]" <<< "$expression")
-	for dir in "${SRC}"/cache/toolchain/*/; do
-		# check if is a toolchain for current $ARCH
-		[[ ! -f ${dir}bin/${compiler}gcc ]] && continue
-		# get toolchain major.minor version
-		local gcc_ver
-		gcc_ver=$("${dir}bin/${compiler}gcc" -dumpversion | grep -oE "^[[:digit:]]+\.[[:digit:]]")
-		# check if toolchain version satisfies requirement
-		awk "BEGIN{exit ! ($gcc_ver $expression)}" > /dev/null || continue
-		# check if found version is the closest to target
-		# may need different logic here with more than 1 digit minor version numbers
-		# numbers: 3.9 > 3.10; versions: 3.9 < 3.10
-		# dpkg --compare-versions can be used here if operators are changed
-		local d
-		d=$(awk '{x = $1 - $2}{printf "%.1f\n", (x > 0) ? x : -x}' <<< "$target_ver $gcc_ver")
-		if awk "BEGIN{exit ! ($d < $dist)}" > /dev/null; then
-			dist=$d
-			toolchain=${dir}bin
-		fi
-	done
-	echo "$toolchain"
-	# logging a stack of used compilers.
-	if [[ -f "${DEST}"/${LOG_SUBPATH}/compiler.log ]]; then
-		if ! grep -q "$toolchain" "${DEST}"/${LOG_SUBPATH}/compiler.log; then
-			echo "$toolchain" >> "${DEST}"/${LOG_SUBPATH}/compiler.log
-		fi
-	else
-		echo "$toolchain" >> "${DEST}"/${LOG_SUBPATH}/compiler.log
-	fi
+	ver[0]=$(grep "^VERSION" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+' || true)
+	ver[1]=$(grep "^PATCHLEVEL" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+' || true)
+	ver[2]=$(grep "^SUBLEVEL" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^[[:digit:]]+' || true)
+	ver[3]=$(grep "^EXTRAVERSION" "${1}"/Makefile | head -1 | awk '{print $(NF)}' | grep -oE '^-rc[[:digit:]]+' || true)
+	ver[4]=$(if [ -f localversion-next ]; then echo $(cat localversion-next); fi || true)
+	echo "${ver[0]:-0}${ver[1]:+.${ver[1]}}${ver[2]:+.${ver[2]}}${ver[3]}${ver[4]}"
+	return 0
 }
 
 # overlayfs_wrapper <operation> <workdir> <description>
@@ -75,7 +51,7 @@ overlayfs_wrapper() {
 		local description="$3"
 		mkdir -p /tmp/overlay_components/ /tmp/armbian_build/
 		local tempdir workdir mergeddir
-		tempdir=$(mktemp -d --tmpdir="/tmp/overlay_components/")
+		tempdir=$(mktemp -d --tmpdir="/tmp/overlay_components/") # @TODO: WORKDIR? otherwise uses host's root disk, which might be small
 		workdir=$(mktemp -d --tmpdir="/tmp/overlay_components/")
 		mergeddir=$(mktemp -d --suffix="_$description" --tmpdir="/tmp/armbian_build/")
 		mount -t overlay overlay -o lowerdir="$srcdir",upperdir="$tempdir",workdir="$workdir" "$mergeddir"
@@ -88,12 +64,16 @@ overlayfs_wrapper() {
 	fi
 	if [[ $operation == cleanup ]]; then
 		if [[ -f /tmp/.overlayfs_wrapper_umount ]]; then
-			for dir in $(< /tmp/.overlayfs_wrapper_umount); do
+			local -a _overlay_umount_dirs
+			mapfile -t _overlay_umount_dirs < /tmp/.overlayfs_wrapper_umount
+			for dir in "${_overlay_umount_dirs[@]}"; do
 				[[ $dir == /tmp/* ]] && umount -l "$dir" > /dev/null 2>&1
 			done
 		fi
 		if [[ -f /tmp/.overlayfs_wrapper_cleanup ]]; then
-			for dir in $(< /tmp/.overlayfs_wrapper_cleanup); do
+			local -a _overlay_cleanup_dirs
+			mapfile -t _overlay_cleanup_dirs < /tmp/.overlayfs_wrapper_cleanup
+			for dir in "${_overlay_cleanup_dirs[@]}"; do
 				[[ $dir == /tmp/* ]] && rm -rf "$dir"
 			done
 		fi

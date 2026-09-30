@@ -1,42 +1,35 @@
 #!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
+#
+# This file is a part of the Armbian Build Framework
+# https://github.com/armbian/build/
+
 compile_atf() {
-	if [[ $CLEAN_LEVEL == *make* ]]; then
-		display_alert "Cleaning" "$ATFSOURCEDIR" "info"
-		(
-			cd "${SRC}/cache/sources/${ATFSOURCEDIR}"
-			make distclean > /dev/null 2>&1
-		)
+	if [[ -n "${ATFSOURCE}" && "${ATFSOURCE}" != "none" ]]; then
+		display_alert "Downloading sources" "atf" "git"
+		fetch_from_repo "$ATFSOURCE" "$ATFDIR" "$ATFBRANCH" "yes"
 	fi
 
-	if [[ $USE_OVERLAYFS == yes ]]; then
-		local atfdir
-		atfdir=$(overlayfs_wrapper "wrap" "$SRC/cache/sources/$ATFSOURCEDIR" "atf_${LINUXFAMILY}_${BRANCH}")
+	if [[ $CLEAN_LEVEL == *make-atf* ]]; then
+		display_alert "Cleaning ATF tree - CLEAN_LEVEL contains 'make-atf'" "$ATFSOURCEDIR" "info"
+		(
+			cd "${SRC}/cache/sources/${ATFSOURCEDIR}" || exit_with_error "crazy about ${ATFSOURCEDIR}"
+			run_host_command_logged make distclean
+		)
 	else
-		local atfdir="$SRC/cache/sources/$ATFSOURCEDIR"
+		display_alert "Not cleaning ATF tree, use CLEAN_LEVEL=make-atf if needed" "CLEAN_LEVEL=${CLEAN_LEVEL}" "debug"
+	fi
+
+	local atfdir="$SRC/cache/sources/$ATFSOURCEDIR"
+	if [[ $USE_OVERLAYFS == yes ]]; then
+		atfdir=$(overlayfs_wrapper "wrap" "$SRC/cache/sources/$ATFSOURCEDIR" "atf_${LINUXFAMILY}_${BRANCH}")
 	fi
 	cd "$atfdir" || exit
 
 	display_alert "Compiling ATF" "" "info"
-
-	# build aarch64
-	if [[ $(dpkg --print-architecture) == amd64 ]]; then
-
-		local toolchain
-		toolchain=$(find_toolchain "$ATF_COMPILER" "$ATF_USE_GCC")
-		[[ -z $toolchain ]] && exit_with_error "Could not find required toolchain" "${ATF_COMPILER}gcc $ATF_USE_GCC"
-
-		if [[ -n $ATF_TOOLCHAIN2 ]]; then
-			local toolchain2_type toolchain2_ver toolchain2
-			toolchain2_type=$(cut -d':' -f1 <<< "${ATF_TOOLCHAIN2}")
-			toolchain2_ver=$(cut -d':' -f2 <<< "${ATF_TOOLCHAIN2}")
-			toolchain2=$(find_toolchain "$toolchain2_type" "$toolchain2_ver")
-			[[ -z $toolchain2 ]] && exit_with_error "Could not find required toolchain" "${toolchain2_type}gcc $toolchain2_ver"
-		fi
-
-		# build aarch64
-	fi
-
-	display_alert "Compiler version" "${ATF_COMPILER}gcc $(eval env PATH="${toolchain}:${PATH}" "${ATF_COMPILER}gcc" -dumpversion)" "info"
 
 	local target_make target_patchdir target_files
 	target_make=$(cut -d';' -f1 <<< "${ATF_TARGET_MAP}")
@@ -46,25 +39,67 @@ compile_atf() {
 	advanced_patch "atf" "${ATFPATCHDIR}" "$BOARD" "$target_patchdir" "$BRANCH" "${LINUXFAMILY}-${BOARD}-${BRANCH}"
 
 	# create patch for manual source changes
-	[[ $CREATE_PATCHES == yes ]] && userpatch_create "atf"
+	if [[ $CREATE_PATCHES_ATF == yes ]]; then
+		userpatch_create "atf"
+		return 0
+	fi
 
-	echo -e "\n\t==  atf  ==\n" >> "${DEST}"/${LOG_SUBPATH}/compilation.log
-	# ENABLE_BACKTRACE="0" has been added to workaround a regression in ATF.
-	# Check: https://github.com/armbian/build/issues/1157
-	eval CCACHE_BASEDIR="$(pwd)" env PATH="${toolchain}:${toolchain2}:${PATH}" \
-		'make ENABLE_BACKTRACE="0" $target_make $CTHREADS \
-		CROSS_COMPILE="$CCACHE $ATF_COMPILER"' \
-		${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/${LOG_SUBPATH}/compilation.log'} \
-		${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" --progressbox "Compiling ATF..." $TTY_Y $TTY_X'} \
-		${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'} 2>> "${DEST}"/${LOG_SUBPATH}/compilation.log
+	call_extension_method "atf_make_config" <<- 'ATF_MAKE_CONFIG'
+		*Hook to customize the ATF (TF-A) build environment*
+		Called before the compiler checks and make for ATF. make inherits the
+		build environment: export or unset variables to change it, or set
+		CCACHE / ATF_COMPILER, from which CC and CROSS_COMPILE are built.
+	ATF_MAKE_CONFIG
 
-	[[ ${PIPESTATUS[0]} -ne 0 ]] && exit_with_error "ATF compilation failed"
+	display_alert "Compiler version" "${ATF_COMPILER}gcc $(eval env "${ATF_COMPILER}gcc" -dumpfullversion -dumpversion)" "info"
 
-	[[ $(type -t atf_custom_postprocess) == function ]] && atf_custom_postprocess
+	# - "--no-warn-rwx-segment" is *required* for binutils 2.39 - see https://developer.trustedfirmware.org/T996
+	#   - but *not supported* by 2.38, brilliant...
+	# 2026: turns out that *gcc* is the one that takes the flag, and it might or not accept it.
+	#       distros patch binutils and gcc independently, since it's a security-related flag,
+	#       might have been backported to one and not the other. what a freaking life.
+	#       test both -- and only add it if _both_ support it
+	function gcc_accepts_flag() {
+		{ echo 'int main(){}' | "${ATF_COMPILER}gcc" -Wl,"$1" -x c - -o /dev/null > /dev/null 2>&1; } && return 0
+		return 1
+	}
+	function ld_supports_flag() {
+		{ "$("${ATF_COMPILER}gcc" -print-prog-name=ld)" --help 2> /dev/null | grep -q -- "$1"; } && return 0
+		return 1
+	}
+	if gcc_accepts_flag --no-warn-rwx-segment; then
+		display_alert "GCC supports '--no-warn-rwx-segment'" "gcc:yes - ld:tba" "debug"
+		if ld_supports_flag no-warn-rwx-segment; then
+			display_alert "GCC/LD supports '--no-warn-rwx-segment'" "gcc:yes - ld:yes" "debug"
+			if [[ "${ATF_SKIP_LDFLAGS:-"no"}" == "yes" ]]; then # IF ATF_SKIP_LDFLAGS==yes, then skip it completely
+				display_alert "Skip adding LD flag '--no-warn-rwx-segment' to TF-A build" "ATF_SKIP_LDFLAGS=${ATF_SKIP_LDFLAGS}" "info"
+			elif [[ "${ATF_SKIP_LDFLAGS_WL:-"no"}" == "yes" ]]; then # IF ATF_SKIP_LDFLAGS_WL==yes, then don't add the -Wl, prefix
+				display_alert "Skip adding '-Wl,' prefix to LD flag '--no-warn-rwx-segment' for TF-A build" "ATF_SKIP_LDFLAGS_WL=${ATF_SKIP_LDFLAGS_WL}" "info"
+				binutils_flags_atf="--no-warn-rwx-segment"
+			else
+				display_alert "Adding full LD flag '-Wl,--no-warn-rwx-segment' to TF-A build" "normal" "info"
+				binutils_flags_atf="-Wl,--no-warn-rwx-segment"
+			fi
+		else
+			display_alert "LD does not support '--no-warn-rwx-segment'" "gcc: yes - ld:no" "debug"
+		fi
+	else
+		display_alert "GCC does not support '--no-warn-rwx-segment'" "gcc: no - ld: not tested" "debug"
+	fi
+	unset -f gcc_accepts_flag ld_supports_flag
 
-	atftempdir=$(mktemp -d)
+	# - ENABLE_BACKTRACE="0" has been added to workaround a regression in ATF. Check: https://github.com/armbian/build/issues/1157
+
+	run_host_command_logged "CROSS_COMPILE='${CCACHE:+${CCACHE} }${ATF_COMPILER}'" CCACHE_BASEDIR="$(pwd)" "CC='${CCACHE:+${CCACHE} }${ATF_COMPILER}gcc'" \
+		"CFLAGS='-fdiagnostics-color=always -Wno-error=attributes -Wno-error=incompatible-pointer-types'" \
+		"TF_LDFLAGS='${binutils_flags_atf}'" \
+		make ENABLE_BACKTRACE="0" LOG_LEVEL="${ATF_LOG_LEVEL:-40}" BUILD_STRING="armbian" $target_make "${CTHREADS}"
+
+	# @TODO: severely missing logging
+	[[ $(type -t atf_custom_postprocess) == function ]] && atf_custom_postprocess 2>&1
+
+	atftempdir=$(mktemp -d) # subject to TMPDIR/WORKDIR, so is protected by single/common error trapmanager to clean-up.
 	chmod 700 ${atftempdir}
-	trap "ret=\$?; rm -rf \"${atftempdir}\" ; exit \$ret" 0 1 2 3 15
 
 	# copy files to temp directory
 	for f in $target_files; do
@@ -83,4 +118,6 @@ compile_atf() {
 
 	# copy license file to pack it to u-boot package later
 	[[ -f license.md ]] && cp license.md "${atftempdir}"/
+
+	return 0 # avoid error due to short-circuit above
 }
