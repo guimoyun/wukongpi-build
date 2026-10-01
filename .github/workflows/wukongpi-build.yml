@@ -13,6 +13,10 @@ on:
         type: boolean
         default: false
 
+# 上传 Release 资源需要写权限，显式声明避免受仓库默认 read-only 限制
+permissions:
+  contents: write
+
 concurrency:
   group: wukongpi-${{ github.ref }}
   cancel-in-progress: true
@@ -24,6 +28,7 @@ jobs:
   artifacts:
     name: ${{ matrix.what }} ${{ matrix.branch || '' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 300
     strategy:
       fail-fast: false
       matrix:
@@ -64,20 +69,43 @@ jobs:
           path: output/debs/*.deb
           if-no-files-found: error
 
-      - name: Attach to Release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+  # ---------------------------------------------------------------
+  # 2) 汇总发布：仅在推送 v* 标签时，把四个 job 的 deb 一次性挂到 Release
+  #    （集中在一个 job 里上传，避免多 job 并发创建同一 Release 冲突）
+  # ---------------------------------------------------------------
+  release:
+    name: publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: artifacts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Collect debs from all matrix jobs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wukongpi-*
+          path: debs
+          merge-multiple: true
+
+      - name: List packages
+        run: |
+          ls -lh debs
+          echo "共 $(ls debs/*.deb | wc -l) 个 deb"
+
+      - name: Attach to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: output/debs/*.deb
+          files: debs/*.deb
+          generate_release_notes: true
 
   # ---------------------------------------------------------------
-  # 2) 完整镜像：仅手动触发（磁盘/时间开销大）
+  # 3) 完整镜像：仅手动触发（磁盘/时间开销大）
   # ---------------------------------------------------------------
   image:
     name: full image (${{ matrix.release }})
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_image == 'true'
     needs: artifacts
     runs-on: ubuntu-24.04
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
