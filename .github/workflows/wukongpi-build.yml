@@ -100,12 +100,14 @@ jobs:
           generate_release_notes: true
 
   # ---------------------------------------------------------------
-  # 3) 完整镜像：仅手动触发（磁盘/时间开销大）
+  # 3) 完整镜像：发版(tag)自动构建，也可手动触发
+  #    注意：这个 job 在新机器上跑不了虚拟机/qemu 受限环境之外的部分，
+  #    GitHub runner 可以挂载 binfmt_misc，所以只有它适合走 whole-image 流程。
   # ---------------------------------------------------------------
   image:
     # job name 中 matrix 上下文不可用，故不写变量
     name: full image
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_image == 'true'
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.build_image == 'true')
     needs: artifacts
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -124,6 +126,19 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift /usr/local/share/powershell || true
           sudo apt-get clean || true
           df -h /
+
+      # 复用上面编好的 deb，避免在新机器上重编译内核（省约 1 小时 + 大量磁盘）
+      - name: Reuse prebuilt debs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wukongpi-*
+          path: output/debs
+          merge-multiple: true
+
+      - name: Show reused packages
+        run: |
+          mkdir -p output/debs
+          ls -lh output/debs
 
       - name: Build full image
         env:
@@ -149,3 +164,9 @@ jobs:
           name: wukongpi-image-${{ matrix.release }}
           path: output/images/*.img.xz
           if-no-files-found: error
+
+      - name: Attach image to Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/images/*.img.xz
