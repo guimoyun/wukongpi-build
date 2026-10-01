@@ -94,7 +94,7 @@ jobs:
           echo "共 $(ls debs/*.deb | wc -l) 个 deb"
 
       - name: Attach to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: debs/*.deb
           generate_release_notes: true
@@ -167,6 +167,6 @@ jobs:
 
       - name: Attach image to Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: output/images/*.img.xz
