@@ -1,0 +1,120 @@
+name: WuKong Pi Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_image:
+        description: "同时构建完整可烧录镜像（磁盘需求 ~35GB，建议使用自托管 runner）"
+        type: boolean
+        default: false
+
+concurrency:
+  group: wukongpi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1) 固件构件：u-boot + 三分支内核 deb
+  # ---------------------------------------------------------------
+  artifacts:
+    name: ${{ matrix.what }} ${{ matrix.branch || '' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        what: [uboot, kernel]
+        branch: [legacy, current, edge]
+        exclude:
+          # u-boot 与内核分支无关，只在 current 上构建一次
+          - what: uboot
+            branch: legacy
+          - what: uboot
+            branch: edge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - name: Build ${{ matrix.what }} (${{ matrix.branch }})
+        env:
+          EXPERT: "yes"
+        run: |
+          ./compile.sh artifact \
+            WHAT=${{ matrix.what }} \
+            BOARD=wukongpi \
+            BRANCH=${{ matrix.branch }} \
+            KERNEL_CONFIGURE=no
+
+      - name: Upload debs
+        uses: actions/upload-artifact@v4
+        with:
+          name: wukongpi-${{ matrix.what }}-${{ matrix.branch }}
+          path: output/debs/*.deb
+          if-no-files-found: error
+
+      - name: Attach to Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/debs/*.deb
+
+  # ---------------------------------------------------------------
+  # 2) 完整镜像：仅手动触发（磁盘/时间开销大）
+  # ---------------------------------------------------------------
+  image:
+    name: full image (${{ matrix.release }})
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_image == 'true'
+    needs: artifacts
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        release: [bookworm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - name: Build full image
+        env:
+          EXPERT: "yes"
+        run: |
+          ./compile.sh build \
+            BOARD=wukongpi \
+            BRANCH=current \
+            RELEASE=${{ matrix.release }} \
+            BUILD_DESKTOP=no \
+            BUILD_MINIMAL=no \
+            KERNEL_CONFIGURE=no
+
+      - name: Compress & upload image
+        run: |
+          cd output/images
+          xz -T0 -9 *.img
+          ls -lh
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: wukongpi-image-${{ matrix.release }}
+          path: output/images/*.img.xz
+          if-no-files-found: error

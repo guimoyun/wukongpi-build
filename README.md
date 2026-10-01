@@ -1,10 +1,27 @@
 # wukongpi_build
 
+[![WuKong Pi Build](https://github.com/guimoyun/wukongpi-build/actions/workflows/wukongpi-build.yml/badge.svg)](https://github.com/guimoyun/wukongpi-build/actions/workflows/wukongpi-build.yml)
+
 基于 **Armbian build framework 26.11.0-trunk**（2026-09-30 快照）裁剪的 WuKong Pi 专用构建仓库，仅保留全志 H3/H2+（sun8i）相关内容。
 
-- 板型：WuKong Pi（Allwinner H2+，sun8i 家族）
-- u-boot：v2026.07（板级补丁：`patch/u-boot/v2026.07-sunxi/board_wukongpi/`）
-- 内核：legacy 6.12 / current 6.18 / edge 7.2（dts 已移植到各版本补丁目录）
+| 项目 | 值 |
+|---|---|
+| 仓库版本 | **v1.0.0** |
+| 构建产物版本（`VERSION`） | `26.11.0-trunk-wukongpi.1` |
+| Armbian 基础版本 | 26.11.0-trunk（upstream `7cbc28173`） |
+| 板型 | WuKong Pi（Allwinner H2+，sun8i 家族） |
+| u-boot | v2026.07（板级补丁 `patch/u-boot/v2026.07-sunxi/board_wukongpi/`） |
+| 内核 | legacy 6.12 / current 6.18 / edge 7.2（dts 已移植并实测编译通过） |
+
+### 自动化构建
+
+推送到 `main` 或打 `v*` 标签会自动构建并上传 deb；打标签时自动发布到 Releases：
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1     # 触发构建 + Release
+```
+
+产出：`linux-u-boot-wukongpi-current`、`linux-{image,dtb,headers,libc-dev}-{legacy,current,edge}-sunxi` 的 armhf deb 包。
 
 ### Basic requirements
 
