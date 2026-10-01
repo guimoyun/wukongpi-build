@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Collect debs from all matrix jobs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: wukongpi-*
           path: debs
@@ -131,7 +131,7 @@ jobs:
 
       # 复用上面编好的 deb，避免在新机器上重编译内核（省约 1 小时 + 大量磁盘）
       - name: Reuse prebuilt debs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: wukongpi-*
           path: output/debs
