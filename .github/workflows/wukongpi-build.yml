@@ -122,6 +122,13 @@ jobs:
           sudo apt-get clean || true
           df -h /
 
+      # 组装 armhf rootfs 需要跨架构 chroot：宿主机必须先注册 qemu-arm handler。
+      # 否则 armbian 自己的构建容器里 update-binfmts 会失败（Azure 宿主默认没挂载 binfmt_misc）。
+      - name: Register QEMU handler on runner host
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm
+
       # 复用上面编好的 deb，避免在新机器上重编译内核（省约 1 小时 + 大量磁盘）
       - name: Reuse prebuilt debs
         uses: actions/download-artifact@v4
