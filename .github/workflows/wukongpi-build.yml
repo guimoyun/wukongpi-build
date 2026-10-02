@@ -125,7 +125,7 @@ jobs:
       # 组装 armhf rootfs 需要跨架构 chroot：宿主机必须先注册 qemu-arm handler。
       # 否则 armbian 自己的构建容器里 update-binfmts 会失败（Azure 宿主默认没挂载 binfmt_misc）。
       - name: Register QEMU handler on runner host
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm
 
